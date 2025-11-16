@@ -43,6 +43,8 @@ void cdb_free_database(cdb_database_t* db);
 /* File I/O */
 int cdb_open(const char* filename, cdb_database_t* db);
 int cdb_save(const char* filename, cdb_database_t* db);
+int cdb_save_to(cdb_database_t* db, const char* filename);  /* Save to specific file */
+int cdb_load_from(cdb_database_t* db, const char* filename); /* Load from specific file */
 
 /* Schema management */
 int cdb_add_column(cdb_database_t* db, const char* name, cdb_data_type_t type);

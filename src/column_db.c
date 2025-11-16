@@ -11,7 +11,7 @@
 static char error_message[256] = {0};
 
 /* Helper function to set error message */
-static void set_error(const char* msg) {
+void set_error(const char* msg) {
     if (msg) {
         strncpy_s(error_message, sizeof(error_message), msg, _TRUNCATE);
     } else {
@@ -425,43 +425,6 @@ cdb_data_type_t cdb_get_column_type(cdb_database_t* db, size_t col_index) {
         return -1;
     }
     return db->columns[col_index].data_type;
-}
-
-/* Placeholder for file I/O (to be implemented) */
-int cdb_open(const char* filename, cdb_database_t* db) {
-    if (!filename || !db) {
-        set_error("Invalid filename or database");
-        return -1;
-    }
-    
-    /* TODO: Implement file deserialization */
-    if (db->filename) free(db->filename);
-    db->filename = (char*)malloc(strlen(filename) + 1);
-    if (!db->filename) {
-        set_error("Failed to allocate filename");
-        return -1;
-    }
-    strcpy_s(db->filename, strlen(filename) + 1, filename);
-    
-    return 0;
-}
-
-int cdb_save(const char* filename, cdb_database_t* db) {
-    if (!filename || !db) {
-        set_error("Invalid filename or database");
-        return -1;
-    }
-    
-    /* TODO: Implement file serialization */
-    if (db->filename) free(db->filename);
-    db->filename = (char*)malloc(strlen(filename) + 1);
-    if (!db->filename) {
-        set_error("Failed to allocate filename");
-        return -1;
-    }
-    strcpy_s(db->filename, strlen(filename) + 1, filename);
-    
-    return 0;
 }
 
 /* Get error message */

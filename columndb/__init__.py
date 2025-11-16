@@ -136,10 +136,12 @@ class ColumnDB:
         Raises:
             ValueError: If column doesn't exist
         """
-        if column_name not in self._columns:
-            raise ValueError(f"Column '{column_name}' does not exist")
-        
-        return self._db.get_column_data(column_name)
+        # Try to get the data from the C extension
+        # This will raise an error if the column doesn't exist
+        try:
+            return self._db.get_column_data(column_name)
+        except RuntimeError as e:
+            raise ValueError(f"Column '{column_name}' does not exist: {e}")
     
     def get_num_rows(self) -> int:
         """Get the number of rows in the database."""
@@ -165,29 +167,69 @@ class ColumnDB:
             DataType.BOOL: "bool",
         }
         
-        return {name: type_names[dtype] for name, dtype in self._columns.items()}
+        # Use _columns dict if it's populated (database created in this session)
+        if self._columns:
+            return {name: type_names[dtype] for name, dtype in self._columns.items()}
+        
+        # Fall back to getting column names from the C extension (database loaded from file)
+        # We can't get the types from extension, so just return type strings "unknown"
+        if hasattr(self._db, 'get_column_names'):
+            column_names = self._db.get_column_names()
+            return {name: "unknown" for name in column_names}
+        
+        return {}
     
     def save(self, filename: str) -> None:
         """
-        Save database to a file.
+        Save database to a .cdb file.
         
         Args:
-            filename: Path to save to
+            filename: Path to save to (e.g., "data.cdb")
+            
+        Raises:
+            RuntimeError: If save fails
         """
         self._filename = filename
-        # TODO: Implement serialization
-        pass
+        try:
+            self._db.save(filename)
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to save database: {e}")
     
-    def load(self, filename: str) -> None:
+    @classmethod
+    def load(cls, filename: str) -> 'ColumnDB':
         """
-        Load database from a file.
-        
+        Load database from a .cdb file.
+
         Args:
-            filename: Path to load from
+            filename: Path to load from (e.g., "data.cdb")
+            
+        Returns:
+            ColumnDB instance loaded from file
+            
+        Raises:
+            RuntimeError: If load fails
         """
-        self._filename = filename
-        # TODO: Implement deserialization
-        pass
+        # Create a new empty instance
+        instance = cls.__new__(cls)
+        instance._filename = filename
+        instance._columns = {}
+        
+        # Create C extension object and call load on it
+        try:
+            db_ext = _columndb.ColumnDB()
+            db_ext.load(filename)
+            instance._db = db_ext
+            
+            # Rebuild the _columns tracking dict
+            # We need to iterate through columns and add them
+            num_cols = db_ext.get_num_columns()
+            # Note: Since C extension doesn't expose column names through get_column_data,
+            # we can't rebuild _columns accurately. For now, just use the C extension directly.
+            instance._columns = {}
+            
+            return instance
+        except RuntimeError as e:
+            raise RuntimeError(f"Failed to load database: {e}")
     
     def to_dict(self) -> Dict[str, List[Any]]:
         """
@@ -197,8 +239,21 @@ class ColumnDB:
             Dictionary mapping column names to lists of values
         """
         result = {}
-        for col_name in self._columns.keys():
-            result[col_name] = self.get_column_data(col_name)
+        
+        # Try to get column names from the C extension if available
+        if hasattr(self._db, 'get_column_names'):
+            column_names = self._db.get_column_names()
+        else:
+            # Fall back to using _columns dict
+            column_names = list(self._columns.keys())
+        
+        for col_name in column_names:
+            try:
+                result[col_name] = self.get_column_data(col_name)
+            except (ValueError, RuntimeError):
+                # Skip columns that can't be retrieved
+                pass
+        
         return result
     
     def to_pandas(self):

@@ -246,6 +246,67 @@ static PyObject* PyColumnDB_get_column_data(PyColumnDBObject* self, PyObject* ar
     return result;
 }
 
+/* Get column names */
+static PyObject* PyColumnDB_get_column_names(PyColumnDBObject* self, PyObject* args)
+{
+    size_t num_cols = self->db->num_columns;
+    PyObject* result = PyList_New(num_cols);
+    if (!result) {
+        return NULL;
+    }
+    
+    for (size_t i = 0; i < num_cols; i++) {
+        const char* name = cdb_get_column_name(self->db, i);
+        if (!name) {
+            name = "";
+        }
+        
+        PyObject* name_obj = PyUnicode_FromString(name);
+        if (!name_obj) {
+            Py_DECREF(result);
+            return NULL;
+        }
+        
+        PyList_SET_ITEM(result, i, name_obj);
+    }
+    
+    return result;
+}
+
+/* Save database to file */
+static PyObject* PyColumnDB_save(PyColumnDBObject* self, PyObject* args)
+{
+    const char* filename;
+    if (!PyArg_ParseTuple(args, "s", &filename)) {
+        return NULL;
+    }
+    
+    int result = cdb_save(filename, self->db);
+    if (result != 0) {
+        PyErr_SetString(PyExc_IOError, "Failed to save database");
+        return NULL;
+    }
+    
+    Py_RETURN_NONE;
+}
+
+/* Load database from file - instance method */
+static PyObject* PyColumnDB_load(PyColumnDBObject* self, PyObject* args)
+{
+    const char* filename;
+    if (!PyArg_ParseTuple(args, "s", &filename)) {
+        return NULL;
+    }
+    
+    int result = cdb_open(filename, self->db);
+    if (result != 0) {
+        PyErr_SetString(PyExc_IOError, "Failed to load database");
+        return NULL;
+    }
+    
+    Py_RETURN_NONE;
+}
+
 /* Methods table */
 static PyMethodDef PyColumnDB_methods[] = {
     {"add_column", (PyCFunction)PyColumnDB_add_column, METH_VARARGS, "Add a column to the database"},
@@ -259,6 +320,9 @@ static PyMethodDef PyColumnDB_methods[] = {
     {"get_num_rows", (PyCFunction)PyColumnDB_get_num_rows, METH_NOARGS, "Get number of rows"},
     {"get_num_columns", (PyCFunction)PyColumnDB_get_num_columns, METH_NOARGS, "Get number of columns"},
     {"get_column_data", (PyCFunction)PyColumnDB_get_column_data, METH_VARARGS, "Get column data as list"},
+    {"get_column_names", (PyCFunction)PyColumnDB_get_column_names, METH_NOARGS, "Get list of column names"},
+    {"save", (PyCFunction)PyColumnDB_save, METH_VARARGS, "Save database to file"},
+    {"load", (PyCFunction)PyColumnDB_load, METH_VARARGS, "Load database from file"},
     {NULL}
 };
 

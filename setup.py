@@ -75,6 +75,7 @@ columndb_extension = Extension(
     sources=[
         'src/columndb_extension.c',
         'src/column_db.c',
+        'src/column_db_fileio.c',
     ],
     include_dirs=['include'],
     extra_compile_args=[
